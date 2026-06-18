@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Garage Tracker</title>
+
+    <!-- Bootstrap (CDN). We are ONLY using its grid (container/row/col-*) for
+         now. No other Bootstrap styling is applied; the rest of the page is
+         plain semantic HTML so we can style it ourselves later. -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+
+    <!-- Our own (currently empty) stylesheet, loaded after Bootstrap. -->
+    <link rel="stylesheet" href="css/services.css" />
+
+    <!-- Our page logic. Empty for now; deferred so it runs after parsing. -->
+    <script src="js/services.js" defer></script>
+  </head>
+
+  <body>
+    <header>
+      <!-- Bootstrap navbar: a top bar with the site name (brand) on the left
+           and page links on the right. No collapse/hamburger, so it needs no
+           JavaScript; the links just stay visible. -->
+      <nav class="navbar navbar-expand navbar-dark bg-dark">
+        <div class="container">
+          <!-- The "brand" = site name, links to this (Services) page. -->
+          <a class="navbar-brand" href="services.html">Garage Tracker</a>
+
+          <!-- The list of links. ms-auto pushes them to the right edge. -->
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <!-- aria-current marks this as the page we're on. -->
+              <a class="nav-link active" aria-current="page" href="services.html"
+                >Services</a
+              >
+            </li>
+            <li class="nav-item">
+              <!-- Nipun's Vehicles page. Placeholder href until we know the path. -->
+              <a class="nav-link" href="#">Vehicles</a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container mt-4 mb-4">
+      <!-- Two columns: main content (left) + add/edit form sidebar (right). -->
+      <div class="row">
+        <!-- ===================== LEFT COLUMN ===================== -->
+        <div class="col-md-8">
+          <!-- Service list, with its filters above the table. -->
+          <section class="border rounded p-3 mb-4">
+            <h2>Service Records</h2>
+
+            <!-- Filters act on the list below (wired up later in JS). -->
+            <p>Filter the service records by vehicle, type, or date range.</p>
+            <!-- row g-2 = fields laid out in one row with small gaps between.
+                 Each field is wrapped in a col so the row can size them. -->
+            <form id="filter-form" class="row g-2 mb-4 align-items-end">
+              <div class="col">
+                <label for="filter-vehicle" class="form-label">Vehicle</label>
+                <select id="filter-vehicle" class="form-select">
+                  <option value="">All vehicles</option>
+                </select>
+              </div>
+
+              <div class="col">
+                <label for="filter-type" class="form-label">Type</label>
+                <input id="filter-type" type="text" class="form-control" />
+              </div>
+
+              <div class="col">
+                <label for="filter-from" class="form-label">From</label>
+                <input id="filter-from" type="date" class="form-control" />
+              </div>
+
+              <div class="col">
+                <label for="filter-to" class="form-label">To</label>
+                <input id="filter-to" type="date" class="form-control" />
+              </div>
+
+              <div class="col">
+                <button type="submit" class="btn btn-primary">Apply</button>
+              </div>
+            </form>
+
+            <!-- Rows go in <tbody> via JS later. -->
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Mileage</th>
+                  <th>Cost</th>
+                  <th>Shop</th>
+                  <th>Rating</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="services-tbody">
+                <!-- service rows rendered here later -->
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Report: total spend per vehicle. -->
+          <section>
+            <h2>Spend by Vehicle</h2>
+            <!-- Sort buttons (re-sort the data in JS, then re-render). -->
+            <button type="button">Sort by total spend</button>
+            <button type="button">Sort by # services</button>
+            <table>
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>Total Spend</th>
+                  <th># Services</th>
+                </tr>
+              </thead>
+              <tbody id="by-vehicle-tbody">
+                <!-- rows rendered here later -->
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Report: total spend per month. -->
+          <section>
+            <h2>Spend by Month</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Total Spend</th>
+                  <th># Services</th>
+                </tr>
+              </thead>
+              <tbody id="monthly-tbody">
+                <!-- rows rendered here later -->
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Report: vehicles due for service soon. -->
+          <section>
+            <h2>Due Soon</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Vehicle</th>
+                  <th>Current Mileage</th>
+                  <th>Due At</th>
+                  <th>Miles Left</th>
+                </tr>
+              </thead>
+              <tbody id="due-soon-tbody">
+                <!-- rows rendered here later -->
+              </tbody>
+            </table>
+          </section>
+        </div>
+
+        <!-- ===================== RIGHT COLUMN (sidebar) ===================== -->
+        <div class="col-md-4">
+          <!-- Add/Edit form. One form does both: empty = add (POST); clicking
+               Edit on a row fills it and switches to update (PUT). Wired in JS. -->
+          <section>
+            <h2>Add / Edit a Service</h2>
+            <form id="service-form">
+              <label for="form-vehicle">Vehicle</label>
+              <select id="form-vehicle">
+                <option value="">Select a vehicle…</option>
+              </select>
+
+              <label for="form-date">Date</label>
+              <input id="form-date" type="date" />
+
+              <label for="form-type">Service Type</label>
+              <input id="form-type" type="text" />
+
+              <label for="form-mileage">Mileage</label>
+              <input id="form-mileage" type="number" />
+
+              <label for="form-cost">Cost</label>
+              <input id="form-cost" type="number" step="0.01" />
+
+              <label for="form-interval">Interval</label>
+              <input id="form-interval" type="number" />
+
+              <label for="form-rating">Rating (1–5)</label>
+              <input id="form-rating" type="number" min="1" max="5" />
+
+              <label for="form-shop">Shop</label>
+              <input id="form-shop" type="text" />
+
+              <label for="form-notes">Notes</label>
+              <textarea id="form-notes" rows="2"></textarea>
+
+              <button type="submit">Save</button>
+            </form>
+          </section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
