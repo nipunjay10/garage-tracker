@@ -94,16 +94,20 @@ async function MyFrontEnd() {
       const actions = document.createElement("td");
       const editBtn = document.createElement("button");
 
-      // Configure the edit button.
+      // Configure the edit button. Clicking it fills the form from THIS row's
+      // service (s is captured by the closure) and switches to Edit mode.
       editBtn.type = "button";
       editBtn.className = "btn btn-sm btn-secondary";
       editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", () => fillFormForEdit(s));
 
-      // Configure the delete button.
+      // Configure the delete button. Clicking it confirms, then deletes THIS
+      // row's service and refreshes the list.
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "btn btn-sm btn-danger";
       deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => removeService(s));
 
       // Add the buttons to the actions cell.
       actions.appendChild(editBtn);
@@ -161,6 +165,49 @@ async function MyFrontEnd() {
     }
   }
 
+  // Switch the form into Edit mode for one service: change the heading + button
+  // wording, show the Cancel button, and add the amber accent to the box so it's
+  // clear you're editing (not adding). The actual editingId/field-filling is
+  // done by fillFormForEdit; this is just the visual mode switch.
+  function enterEditMode() {
+    document.getElementById("form-heading").textContent = "Edit Service";
+    document.getElementById("form-submit").textContent = "Update";
+    document.getElementById("form-cancel").classList.remove("d-none");
+    document.getElementById("service-form-section").classList.add("editing");
+  }
+
+  // Put the form back to Add mode (the opposite of enterEditMode). Called by
+  // resetForm, so anything that resets the form returns to Add.
+  function exitEditMode() {
+    document.getElementById("form-heading").textContent = "Add a Service";
+    document.getElementById("form-submit").textContent = "Save";
+    document.getElementById("form-cancel").classList.add("d-none");
+    document.getElementById("service-form-section").classList.remove("editing");
+  }
+
+  // Fill the form from an already-loaded service and switch to Edit mode. We use
+  // the service object the row already has (passed in from displayServices), so
+  // there's no need to re-fetch it. The vehicle field shows the nickname (the
+  // form works in nicknames); readServiceForm maps it back to the _id on save.
+  function fillFormForEdit(s) {
+    editingId = s._id;
+
+    document.getElementById("form-vehicle").value =
+      nameById.get(s.vehicleId) ?? "";
+    document.getElementById("form-date").value = s.date ?? "";
+    document.getElementById("form-type").value = s.serviceType ?? "";
+    document.getElementById("form-mileage").value = s.mileageAtService ?? "";
+    document.getElementById("form-cost").value = s.cost ?? "";
+    document.getElementById("form-interval").value =
+      s.recommendedInterval ?? "";
+    document.getElementById("form-rating").value = s.serviceRating ?? "";
+    document.getElementById("form-shop").value = s.shopName ?? "";
+    document.getElementById("form-notes").value = s.notes ?? "";
+
+    clearFormErrors();
+    enterEditMode();
+  }
+
   // Light front-end gate: a quick check so we DON'T send obviously-bad data to
   // the API. It only checks "is it filled in / does the vehicle exist" — the
   // backend still owns the detailed rules (whole numbers, ranges, etc.) and its
@@ -212,19 +259,25 @@ async function MyFrontEnd() {
     return true;
   }
 
-  // Clear the form and put it back to Add mode. Called after a successful save.
+  // Clear the form and put it back to Add mode. Called after a successful save
+  // and by the Cancel button. exitEditMode undoes the Edit-mode visuals.
   function resetForm() {
     document.getElementById("service-form").reset();
     clearFormErrors();
+    exitEditMode();
     editingId = null;
   }
 
-  // Send the form data to the API. For now this is always a POST (create).
-  // Step D makes it switch to PUT when editingId is set. On success we clear the
-  // form and refresh the list so the new row shows up.
+  // Send the form data to the API. editingId decides which: null = Add (POST to
+  // create), an _id = Edit (PUT to /:id to update that record). On success we
+  // clear the form and refresh the list so the change shows up.
   async function saveService(body) {
-    const res = await fetch("/api/services", {
-      method: "POST",
+    // Build the URL and method based on whether we're editing or adding.
+    const url = editingId ? "/api/services/" + editingId : "/api/services";
+    const method = editingId ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -241,6 +294,27 @@ async function MyFrontEnd() {
 
     console.log("Saved service");
     resetForm();
+    await refreshServices();
+  }
+
+  // Delete one service. Confirm first (it can't be undone), then DELETE it by
+  // id and refresh the list. If we happened to be editing that same service,
+  // reset the form so we're not left editing a row that no longer exists.
+  async function removeService(s) {
+    if (!confirm("Delete this service?")) {
+      return;
+    }
+
+    const res = await fetch("/api/services/" + s._id, { method: "DELETE" });
+    if (!res.ok) {
+      console.error("Error deleting service:", res.statusText);
+      return;
+    }
+
+    console.log("Deleted service", s._id);
+    if (editingId === s._id) {
+      resetForm();
+    }
     await refreshServices();
   }
 
@@ -329,6 +403,10 @@ async function MyFrontEnd() {
         }
         saveService(body);
       });
+
+    // Cancel button (only visible in Edit mode): clear the form and go back to
+    // Add mode, abandoning the edit.
+    document.getElementById("form-cancel").addEventListener("click", resetForm);
   }
 
   /*    ======
