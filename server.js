@@ -3,7 +3,8 @@
 // serves the frontend files, and connects to MongoDB before listening.
 
 import express from "express";
-import { initDatabase } from "./db/database.js";
+import db from "./db/database.js";
+import servicesRouter from "./routes/services.js";
 
 const app = express();
 const PORT = 3000;
@@ -21,13 +22,17 @@ app.get("/api/test", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// Mount the services routes. Every route inside routes/services.js is now
+// reachable under /api/services (e.g. its GET "/" answers GET /api/services).
+app.use("/api/services", servicesRouter);
+
 // Connect to the database FIRST, and only start listening once it succeeds.
 // This way, by the time any request comes in, the database is ready.
 // If the connection fails (e.g. the Mongo container isn't running), we
 // print a friendly message and exit instead of crashing with a stack trace.
 async function startApp() {
   try {
-    await initDatabase();
+    await db.init();
     app.listen(PORT, () => {
       console.log(`Server running at http://localhost:${PORT}`);
     });
