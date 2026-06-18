@@ -21,7 +21,8 @@ prepares a test database from those two files. I directed it to:
 - Insert the 300 vehicles, then read back their MongoDB `_id`s.
 - Give each vehicle a **random 0–5 services**, so some vehicles have no service history.
 - Link each service to a vehicle by storing that vehicle's `_id` as the service's `vehicleId`
-  (the foreign key).
+  (the foreign key). `vehicleId` is stored as a native MongoDB `ObjectId` (the same type as
+  `vehicles._id`), so the two collections join directly without any type conversion.
 - Clamp each service's `mileageAtService` so it never exceeds the vehicle's `currentMileage`.
 - Stop once 700 services are assigned, giving exactly 1000 total documents across both collections.
 - Add a unique nickname to each vehicle.

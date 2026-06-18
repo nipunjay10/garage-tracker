@@ -52,9 +52,12 @@ function toNumberOrNull(value) {
 
 // Build a clean service document from a request body. Used by BOTH POST and
 // PUT so the field shape and the empty-handling live in exactly one place.
+// vehicleId is the foreign key to vehicles._id, which is an ObjectId, so we
+// convert the incoming string to an ObjectId here. toObjectId returns null if
+// it's missing or not a valid id; the POST/PUT handlers reject that with a 400.
 function buildServiceFromBody(body) {
   return {
-    vehicleId: body.vehicleId,
+    vehicleId: toObjectId(body.vehicleId),
     date: body.date,
     serviceType: body.serviceType,
     mileageAtService: toNumberOrNull(body.mileageAtService),
@@ -73,9 +76,15 @@ function buildServiceFromBody(body) {
 function buildFilterFromQuery(query) {
   const filter = {};
 
-  // Filter by vehicle: /api/services?vehicleId=car-1
+  // Filter by vehicle: /api/services?vehicleId=<vehicle's _id>
+  // vehicleId is stored as an ObjectId, so convert the query string to match.
+  // If it's not a valid id, we simply skip the filter (an invalid id can't
+  // match anything meaningful) rather than erroring.
   if (query.vehicleId) {
-    filter.vehicleId = query.vehicleId;
+    const vid = toObjectId(query.vehicleId);
+    if (vid) {
+      filter.vehicleId = vid;
+    }
   }
 
   // Filter by service type: /api/services?serviceType=brakes
@@ -129,9 +138,10 @@ router.post("/", async (req, res) => {
     // Build the document from the request body (shared with PUT).
     const newService = buildServiceFromBody(req.body);
 
-    // A minimal sanity check: don't insert a record with no vehicle.
+    // A minimal sanity check: don't insert a record without a valid vehicle.
+    // newService.vehicleId is null when it was missing OR not a valid id.
     if (!newService.vehicleId) {
-      return res.status(400).json({ error: "vehicleId is required" });
+      return res.status(400).json({ error: "A valid vehicleId is required" });
     }
 
     // Insert it. MongoDB adds a unique _id automatically.
@@ -220,6 +230,12 @@ router.put("/:id", requireValidId, async (req, res) => {
   try {
     // Build the document from the request body (shared with POST).
     const updatedFields = buildServiceFromBody(req.body);
+
+    // PUT is a full replace, so the same valid-vehicle check as POST applies:
+    // otherwise a bad/missing vehicleId would write null and orphan the record.
+    if (!updatedFields.vehicleId) {
+      return res.status(400).json({ error: "A valid vehicleId is required" });
+    }
 
     const result = await db.updateService(req.objectId, updatedFields);
     console.log("PUT /api/services/:id matched:", result.matchedCount);
