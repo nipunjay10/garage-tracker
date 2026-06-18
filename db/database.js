@@ -77,6 +77,17 @@ function createDatabase() {
     }
   };
 
+  // Delete the service with this _id. Returns the result so the route can
+  // check deletedCount (0 = no document had that id).
+  me.deleteService = async function (objectId) {
+    const { client, services } = await getClient();
+    try {
+      return await services.deleteOne({ _id: objectId });
+    } finally {
+      await client.close();
+    }
+  };
+
   // Summary: total spend + number of services for EACH vehicle.
   // Unlike find() (which returns whole rows as-is), aggregate() runs the docs
   // through a pipeline of stages that can GROUP rows and do MATH across them,
@@ -100,17 +111,6 @@ function createDatabase() {
         { $sort: { totalSpent: -1 } },
       ];
       return await services.aggregate(pipeline).toArray();
-    } finally {
-      await client.close();
-    }
-  };
-
-  // Delete the service with this _id. Returns the result so the route can
-  // check deletedCount (0 = no document had that id).
-  me.deleteService = async function (objectId) {
-    const { client, services } = await getClient();
-    try {
-      return await services.deleteOne({ _id: objectId });
     } finally {
       await client.close();
     }
