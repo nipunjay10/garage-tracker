@@ -59,7 +59,7 @@ function buildServiceFromBody(body) {
     vehicleId: body.vehicleId,
     date: body.date,
     serviceType: body.serviceType,
-    mileage: toNumberOrNull(body.mileage),
+    mileageAtService: toNumberOrNull(body.mileageAtService),
     cost: toNumberOrNull(body.cost),
     recommendedInterval: toNumberOrNull(body.recommendedInterval),
     shopName: body.shopName,
@@ -69,7 +69,7 @@ function buildServiceFromBody(body) {
 }
 
 /*=============================================
-=           General Route handlers           =
+=           General GET/, POST/ Route handlers  =
 =============================================*/
 
 // GET /api/services
