@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code local config (local development only)
 .claude/
+
+# Personal developer notes (local only, not part of the project)
+services-part-notes.md
