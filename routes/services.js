@@ -177,6 +177,26 @@ function buildFilterFromQuery(query) {
     filter.serviceType = query.serviceType;
   }
 
+  // Filter by cost range: /api/services?costMin=100&costMax=500
+  // cost is a number, so convert the query strings with Number(). $gte = at
+  // least costMin; $lte = at most costMax. Either end is optional. A
+  // non-numeric value (Number(...) is NaN) is skipped rather than erroring.
+  if (query.costMin || query.costMax) {
+    filter.cost = {};
+    const min = Number(query.costMin);
+    const max = Number(query.costMax);
+    if (query.costMin && !Number.isNaN(min)) {
+      filter.cost.$gte = min;
+    }
+    if (query.costMax && !Number.isNaN(max)) {
+      filter.cost.$lte = max;
+    }
+    // If both were non-numeric, leave no cost filter at all.
+    if (Object.keys(filter.cost).length === 0) {
+      delete filter.cost;
+    }
+  }
+
   // Filter by date range: /api/services?from=2026-01-01&to=2026-06-30
   // Dates are stored as "YYYY-MM-DD" strings, which compare correctly as text.
   // $gte = on or after `from`; $lte = on or before `to`. Either end is optional.

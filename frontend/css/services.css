@@ -53,3 +53,14 @@ h2 {
 .sort-active {
   border: 5px solid blue; /* blue border marks the active sort */
 }
+
+/* Service-list column headers that can be clicked to sort. The pointer cursor
+   signals they're clickable; the arrow span just gets a little breathing room
+   from the label. JS fills .sort-arrow with ▼ or ▲ for the active column. */
+.sortable {
+  cursor: pointer;
+}
+
+.sort-arrow {
+  margin-left: 4px;
+}

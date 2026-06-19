@@ -370,6 +370,36 @@ async function MyFrontEnd() {
     console.log("Displayed monthly with", rows.length, "rows");
   }
 
+  // Fill the year dropdown from the monthly rows: one <option> per distinct
+  // year found in the "YYYY-MM" keys (the first 4 characters), newest first.
+  function fillYearDropdown(rows) {
+    // Collect the distinct years. A Set drops duplicates automatically.
+    const years = new Set();
+    for (let r of rows) {
+      years.add(r._id.slice(0, 4));
+    }
+    // Sort newest first (descending). [...years] turns the Set into an array.
+    const sortedYears = [...years].sort((a, b) => b.localeCompare(a));
+
+    const select = document.getElementById("monthly-year");
+    select.innerHTML = "";
+    for (let year of sortedYears) {
+      const option = document.createElement("option");
+      option.value = year;
+      option.textContent = year;
+      select.appendChild(option);
+    }
+    console.log("Filled year dropdown with", sortedYears.length, "years");
+  }
+
+  // Show only the chosen year's months (those that actually have data; we don't
+  // pad to 12). Reads the selected year and filters the kept monthly rows.
+  function displayMonthlyForYear() {
+    const year = document.getElementById("monthly-year").value;
+    const forYear = monthlyRows.filter((r) => r._id.startsWith(year));
+    displayMonthly(forYear);
+  }
+
   // Render the "Due Soon" table. Each row already has a nickname baked in, plus
   // currentMileage, dueAtMileage and milesLeft (negative = overdue). The status
   // dropdown/coloring comes in a later sub-step; this just shows the numbers.
@@ -399,7 +429,14 @@ async function MyFrontEnd() {
     byVehicleRows = byVehicle;
     // Start (and restart, after a CRUD reload) on the default sort: by nickname.
     sortByVehicle("name");
-    displayMonthly(monthly);
+
+    // Keep the monthly rows, (re)build the year dropdown from them, then show
+    // the selected year. The dropdown defaults to its first option (newest
+    // year) after filling, so this shows that year's months.
+    monthlyRows = monthly;
+    fillYearDropdown(monthlyRows);
+    displayMonthlyForYear();
+
     displayDueSoon(dueSoon);
   }
 
@@ -440,6 +477,88 @@ async function MyFrontEnd() {
     }
   }
 
+  // --- sorting the service list -------------------------------------------
+
+  // How each clickable column sorts. `field` is the property on the service to
+  // read; `type` says how to compare it ("text" or "number"). "vehicle" has no
+  // field — its text is the nickname, looked up by id (handled below). Dates
+  // are "YYYY-MM-DD" strings, so they compare correctly as text.
+  const SERVICE_SORTS = {
+    vehicle: { type: "text" },
+    date: { field: "date", type: "text" },
+    type: { field: "serviceType", type: "text" },
+    mileage: { field: "mileageAtService", type: "number" },
+    cost: { field: "cost", type: "number" },
+    shop: { field: "shopName", type: "text" },
+    rating: { field: "serviceRating", type: "number" },
+  };
+
+  // Read the value a row contributes to a given sort key. Vehicle is special:
+  // its sortable text is the nickname (looked up from the id), since the row
+  // only stores the vehicleId. Everything else reads its configured field.
+  function serviceSortValue(row, key) {
+    if (key === "vehicle") {
+      return nameById.get(row.vehicleId);
+    }
+    return row[SERVICE_SORTS[key].field];
+  }
+
+  // Sort the kept service rows by a column and redraw. Clicking a column sorts
+  // it ascending (A->Z / low->high / oldest); clicking the SAME column again
+  // flips to descending. Clicking a different column starts fresh at ascending.
+  // No refetch — we re-order the rows we already have. `key` is the header's
+  // data-sort value (e.g. "vehicle", "cost"). Missing values sink to the end.
+  function sortServices(key) {
+    const config = SERVICE_SORTS[key];
+    if (!config) {
+      return;
+    }
+
+    // Same column again -> flip direction; new column -> start ascending.
+    if (sortKey === key) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = "asc";
+    }
+
+    serviceRows.sort((a, b) => {
+      const valueA = serviceSortValue(a, key);
+      const valueB = serviceSortValue(b, key);
+
+      // Missing values always sink to the bottom, whichever direction we're in.
+      if (valueA == null) return 1;
+      if (valueB == null) return -1;
+
+      // Compare per the column's type: text with localeCompare, numbers with
+      // subtraction. This gives ascending order.
+      const comparison =
+        config.type === "text" ? valueA.localeCompare(valueB) : valueA - valueB;
+
+      // Negate for descending.
+      return sortDir === "asc" ? comparison : -comparison;
+    });
+
+    displayServices(serviceRows, nameById);
+    updateSortArrows();
+    console.log("Sorted services by", key, sortDir);
+  }
+
+  // Show a ▼ (desc) or ▲ (asc) arrow in the active sort column's header, and
+  // clear the arrows on the others. With no active sort (sortKey null), all
+  // arrows are blank.
+  function updateSortArrows() {
+    const headers = document.querySelectorAll("th.sortable");
+    for (let th of headers) {
+      const arrow = th.querySelector(".sort-arrow");
+      if (th.dataset.sort === sortKey) {
+        arrow.textContent = sortDir === "asc" ? "▲" : "▼";
+      } else {
+        arrow.textContent = "";
+      }
+    }
+  }
+
   // --- filters ------------------------------------------------------------
 
   // Read the filter fields and build a "?...=..." query string for the API.
@@ -464,6 +583,13 @@ async function MyFrontEnd() {
 
     const type = document.getElementById("filter-type").value;
     if (type) params.set("serviceType", type);
+
+    // Cost range: either end is optional. Send whatever is filled in.
+    const costMin = document.getElementById("filter-cost-min").value;
+    if (costMin) params.set("costMin", costMin);
+
+    const costMax = document.getElementById("filter-cost-max").value;
+    if (costMax) params.set("costMax", costMax);
 
     const from = document.getElementById("filter-from").value;
     if (from) params.set("from", from);
@@ -492,30 +618,15 @@ async function MyFrontEnd() {
     }
     errorBox.textContent = "";
 
-    // Fetch the services with the query string, keep them so the cost sort can
-    // re-order them without another request, then show them (sorted if a sort
-    // is chosen).
+    // Fetch the services with the query string and keep them so the column
+    // headers can sort them without another request, then show them.
     serviceRows = await fetchServices(query);
     console.log("Loaded", serviceRows.length, "services");
-    sortByCost();
-  }
-
-  // Sort the kept service rows by cost according to the dropdown, then redraw
-  // the table. "" = leave the order from the API; "asc" = low to high; "desc" =
-  // high to low. Rows with no cost always sort to the bottom (handled before the
-  // direction is applied), so they don't jump to the top in "high to low".
-  function sortByCost() {
-    const order = document.getElementById("sort-cost").value;
-
-    if (order === "asc" || order === "desc") {
-      serviceRows.sort((a, b) => {
-        // Push rows with no cost to the end, regardless of direction.
-        if (a.cost == null) return 1;
-        if (b.cost == null) return -1;
-        return order === "asc" ? a.cost - b.cost : b.cost - a.cost;
-      });
-    }
-
+    // A fresh fetch resets to the default (API) order, so clear any active
+    // sort and its arrow.
+    sortKey = null;
+    updateSortArrows();
+    // Redraw the table with the new data.
     displayServices(serviceRows, nameById);
   }
 
@@ -562,8 +673,17 @@ async function MyFrontEnd() {
       .getElementById("sort-by-count")
       .addEventListener("click", () => sortByVehicle("serviceCount"));
 
-    // Cost sort dropdown: re-sort the already-fetched service rows on change.
-    document.getElementById("sort-cost").addEventListener("change", sortByCost);
+    // Spend-by-Month year dropdown: show the chosen year's months on change.
+    document
+      .getElementById("monthly-year")
+      .addEventListener("change", displayMonthlyForYear);
+
+    // Service-list sortable headers: one handler reads each header's data-sort
+    // key and sorts the kept rows by that column.
+    const sortableHeaders = document.querySelectorAll("th.sortable");
+    for (let th of sortableHeaders) {
+      th.addEventListener("click", () => sortServices(th.dataset.sort));
+    }
   }
 
   /*    ======
@@ -586,9 +706,18 @@ async function MyFrontEnd() {
   // data, not the on-screen cells, so we sort real numbers not "$1,234.56".)
   let byVehicleRows = [];
 
-  // The service-list rows, kept after fetching so the cost-sort dropdown can
+  // The service-list rows, kept after fetching so the column headers can
   // re-order them without another request.
   let serviceRows = [];
+
+  // Which column the list is sorted by and the direction. null = no sort (the
+  // order from the API). A refetch resets these back to null.
+  let sortKey = null;
+  let sortDir = "desc";
+
+  // The Spend-by-Month rows, kept so the year dropdown can show just one year's
+  // months without another request.
+  let monthlyRows = [];
 
   fillVehicleDatalist(vehicles);
   await refreshServices();

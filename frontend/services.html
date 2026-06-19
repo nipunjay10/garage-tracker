@@ -95,14 +95,31 @@
               </div>
 
               <div class="col-md-4">
-                <!-- Sorts the list by cost. Handled in JS (re-orders the rows
-                     we already fetched, no extra request). "" = API order. -->
-                <label for="sort-cost" class="form-label">Cost</label>
-                <select id="sort-cost" class="form-select">
-                  <option value="">None</option>
-                  <option value="asc">Low to high</option>
-                  <option value="desc">High to low</option>
-                </select>
+                <!-- Cost range filter (either end optional). Applied on the
+                     backend via the query string, like the other filters. -->
+                <label for="filter-cost-min" class="form-label"
+                  >Min cost</label
+                >
+                <input
+                  id="filter-cost-min"
+                  type="number"
+                  step="0.01"
+                  class="form-control"
+                  placeholder="Any"
+                />
+              </div>
+
+              <div class="col-md-4">
+                <label for="filter-cost-max" class="form-label"
+                  >Max cost</label
+                >
+                <input
+                  id="filter-cost-max"
+                  type="number"
+                  step="0.01"
+                  class="form-control"
+                  placeholder="Any"
+                />
               </div>
 
               <div class="col-md-4">
@@ -123,10 +140,10 @@
             <!-- Shown by JS if the typed vehicle nickname doesn't exist. -->
             <p id="filter-error" class="text-danger"></p>
 
-            <!-- On narrow screens the table scrolls sideways; nudge the user to
-                 scroll right to reach the Edit/Delete actions. -->
+            <!-- Hints: headers sort the list; scroll right for the actions. -->
             <p class="text-muted small mb-1">
-              Scroll right in the table to reach the Edit/Delete actions.
+              Click a column header to sort (click again to reverse). Scroll
+              right in the table to reach the Edit/Delete actions.
             </p>
 
             <!-- Rows go in <tbody> via JS later. table-responsive scrolls
@@ -135,14 +152,33 @@
             <div class="table-responsive scroll-table">
               <table class="table table-striped">
                 <thead>
+                  <!-- Every data column is sortable: its data-sort key tells the
+                       JS which field to sort by (SERVICE_SORTS maps it to the
+                       field + type). The <span> holds the ▲/▼ arrow JS adds for
+                       the active column. .sortable styles them as clickable.
+                       "Actions" has no key, so it isn't sortable. -->
                   <tr>
-                    <th>Vehicle</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Mileage</th>
-                    <th>Cost</th>
-                    <th>Shop</th>
-                    <th>Rating</th>
+                    <th class="sortable" data-sort="vehicle">
+                      Vehicle <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="date">
+                      Date <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="type">
+                      Type <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="mileage">
+                      Mileage <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="cost">
+                      Cost <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="shop">
+                      Shop <span class="sort-arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort="rating">
+                      Rating <span class="sort-arrow"></span>
+                    </th>
                     <th>Actions</th>
                   </tr>
                 </thead>
