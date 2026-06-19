@@ -521,8 +521,10 @@ async function MyFrontEnd() {
     displayMonthlyForYear();
 
     // Keep the due-soon rows and show them filtered by the status dropdown
-    // (defaults to "All").
+    // (defaults to "All"). Show the arrow for the default sort direction.
     dueSoonRows = dueSoon;
+    document.getElementById("miles-sort-arrow").textContent =
+      dueSortDir === "asc" ? "▲" : "▼";
     displayDueSoonForStatus();
   }
 
@@ -601,11 +603,11 @@ async function MyFrontEnd() {
     }
 
     // Same column again -> flip direction; new column -> start ascending.
-    if (sortKey === key) {
-      sortDir = sortDir === "asc" ? "desc" : "asc";
+    if (serviceSortKey === key) {
+      serviceSortDir = serviceSortDir === "asc" ? "desc" : "asc";
     } else {
-      sortKey = key;
-      sortDir = "asc";
+      serviceSortKey = key;
+      serviceSortDir = "asc";
     }
 
     serviceRows.sort((a, b) => {
@@ -622,23 +624,23 @@ async function MyFrontEnd() {
         config.type === "text" ? valueA.localeCompare(valueB) : valueA - valueB;
 
       // Negate for descending.
-      return sortDir === "asc" ? comparison : -comparison;
+      return serviceSortDir === "asc" ? comparison : -comparison;
     });
 
     displayServices(serviceRows, nameById);
     updateSortArrows();
-    console.log("Sorted services by", key, sortDir);
+    console.log("Sorted services by", key, serviceSortDir);
   }
 
   // Show a ▼ (desc) or ▲ (asc) arrow in the active sort column's header, and
-  // clear the arrows on the others. With no active sort (sortKey null), all
-  // arrows are blank.
+  // clear the arrows on the others. With no active sort (serviceSortKey null),
+  // all arrows are blank.
   function updateSortArrows() {
     const headers = document.querySelectorAll("th.sortable");
     for (let th of headers) {
       const arrow = th.querySelector(".sort-arrow");
-      if (th.dataset.sort === sortKey) {
-        arrow.textContent = sortDir === "asc" ? "▲" : "▼";
+      if (th.dataset.sort === serviceSortKey) {
+        arrow.textContent = serviceSortDir === "asc" ? "▲" : "▼";
       } else {
         arrow.textContent = "";
       }
@@ -710,7 +712,7 @@ async function MyFrontEnd() {
     console.log("Loaded", serviceRows.length, "services");
     // A fresh fetch resets to the default (API) order, so clear any active
     // sort and its arrow.
-    sortKey = null;
+    serviceSortKey = null;
     updateSortArrows();
     // Redraw the table with the new data.
     displayServices(serviceRows, nameById);
@@ -806,10 +808,10 @@ async function MyFrontEnd() {
   // re-order them without another request.
   let serviceRows = [];
 
-  // Which column the list is sorted by and the direction. null = no sort (the
-  // order from the API). A refetch resets these back to null.
-  let sortKey = null;
-  let sortDir = "desc";
+  // Which column the SERVICE-RECORDS table is sorted by and the direction.
+  // null = no sort (the order from the API). A refetch resets these to null.
+  let serviceSortKey = null;
+  let serviceSortDir = "desc";
 
   // The Spend-by-Month rows, kept so the year dropdown can show just one year's
   // months without another request.
@@ -819,9 +821,10 @@ async function MyFrontEnd() {
   // another request.
   let dueSoonRows = [];
 
-  // Miles Left sort direction for Due-Soon: null = unsorted (the order from the
-  // API, most-urgent-first), then "asc" or "desc" once the button is clicked.
-  let dueSortDir = null;
+  // Miles Left sort direction for Due-Soon. Defaults to "asc" because the API
+  // already returns rows most-urgent-first (milesLeft ascending), so the table
+  // starts genuinely ascending and the ▲ arrow reflects that. Clicking toggles.
+  let dueSortDir = "asc";
 
   fillVehicleDatalist(vehicles);
   await refreshServices();
