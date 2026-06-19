@@ -492,10 +492,31 @@ async function MyFrontEnd() {
     }
     errorBox.textContent = "";
 
-    // Fetch the services with the query string.
-    const services = await fetchServices(query);
-    console.log("Loaded", services.length, "services");
-    displayServices(services, nameById);
+    // Fetch the services with the query string, keep them so the cost sort can
+    // re-order them without another request, then show them (sorted if a sort
+    // is chosen).
+    serviceRows = await fetchServices(query);
+    console.log("Loaded", serviceRows.length, "services");
+    sortByCost();
+  }
+
+  // Sort the kept service rows by cost according to the dropdown, then redraw
+  // the table. "" = leave the order from the API; "asc" = low to high; "desc" =
+  // high to low. Rows with no cost always sort to the bottom (handled before the
+  // direction is applied), so they don't jump to the top in "high to low".
+  function sortByCost() {
+    const order = document.getElementById("sort-cost").value;
+
+    if (order === "asc" || order === "desc") {
+      serviceRows.sort((a, b) => {
+        // Push rows with no cost to the end, regardless of direction.
+        if (a.cost == null) return 1;
+        if (b.cost == null) return -1;
+        return order === "asc" ? a.cost - b.cost : b.cost - a.cost;
+      });
+    }
+
+    displayServices(serviceRows, nameById);
   }
 
   // Wire up the page-level listeners once, on load. (The Edit/Delete buttons on
@@ -540,6 +561,9 @@ async function MyFrontEnd() {
     document
       .getElementById("sort-by-count")
       .addEventListener("click", () => sortByVehicle("serviceCount"));
+
+    // Cost sort dropdown: re-sort the already-fetched service rows on change.
+    document.getElementById("sort-cost").addEventListener("change", sortByCost);
   }
 
   /*    ======
@@ -561,6 +585,10 @@ async function MyFrontEnd() {
   // re-order and re-render them without hitting the API again. (We sort this
   // data, not the on-screen cells, so we sort real numbers not "$1,234.56".)
   let byVehicleRows = [];
+
+  // The service-list rows, kept after fetching so the cost-sort dropdown can
+  // re-order them without another request.
+  let serviceRows = [];
 
   fillVehicleDatalist(vehicles);
   await refreshServices();
